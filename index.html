@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Lifted multiple shooting exposes contact impulses as decision variables, and IP-PAS parallelizes trajectory optimization across time.">
+  <meta name="author" content="Wei-Chen Li, Glen Chou">
+  <meta name="citation_title" content="Lifted Multiple Shooting for Parallel-in-Time Contact-Rich Trajectory Optimization">
+  <meta name="citation_author" content="Li, Wei-Chen">
+  <meta name="citation_author" content="Chou, Glen">
+  <title>Lifted Multiple Shooting for Parallel-in-Time Contact-Rich Trajectory Optimization</title>
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+  <link rel="stylesheet" href="static/css/paper.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <script defer src="static/js/fontawesome.all.min.js"></script>
+  <script defer src="static/js/paper.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@4.1.0/tex-chtml.js"></script>
+</head>
+<body>
+<main id="main-content">
+  <header class="hero">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="title is-1 publication-title">Lifted Multiple Shooting for Parallel-in-Time Contact-Rich Trajectory Optimization</h1>
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">Wei-Chen Li,</span>
+              <span class="author-block">Glen Chou</span>
+            </div>
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">Georgia Institute of Technology</span>
+            </div>
+            <div class="column has-text-centered">
+              <div class="publication-links">
+                <span class="link-block">
+                  <a href="https://arxiv.org/pdf/<ARXIV PAPER ID>.pdf" target="_blank"
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon" aria-hidden="true"><i class="fas fa-file-pdf"></i></span>
+                    <span>Paper</span>
+                  </a>
+                </span>
+                <span class="link-block">
+                  <a href="code.html" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon" aria-hidden="true"><i class="fab fa-github"></i></span>
+                    <span>Code</span>
+                  </a>
+                </span>
+                <span class="link-block">
+                  <a href="https://arxiv.org/abs/<ARXIV PAPER ID>" target="_blank"
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon" aria-hidden="true"><i class="ai ai-arxiv"></i></span>
+                    <span>arXiv</span>
+                  </a>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="paper-section paper-section-tinted" id="abstract" aria-labelledby="abstract-title">
+    <div class="paper-wrap">
+      <div class="paper-abstract">
+        <h2 class="paper-title" id="abstract-title">Abstract</h2>
+        <p>
+          Planning through contact requires accounting for the coupled dynamics of a robot and its environment,
+          including inertial effects, contact forces, and friction. However, the nonsmoothness and multimodality of
+          contact dynamics and contact geometry makes gradient-based optimization challenging. In this work, we propose
+          <em>lifted multiple shooting</em>, a trajectory optimization transcription that can be solved directly using
+          nonlinear program solvers. By introducing contact impulses as optimization variables, our formulation allows
+          the optimizer to satisfy the state-transition constraints using friction-cone-feasible impulses while
+          separately enforcing their consistency with the contact model. Our formulation supports a broad class of
+          contact constitutive relations, with sensitivities computed through implicit differentiation. To enable
+          efficient planning over long horizons and for high-dimensional systems, we further introduce IP-PAS, a
+          parallel-in-time primal-dual interior-point solver that achieves
+          \(O(\log T)\) parallel computational depth. We evaluate the
+          proposed methods on six fully dynamic contact-rich planning tasks, including nonprehensile pushing and
+          in-hand manipulation, without contact-guiding costs. Lifted multiple shooting improves success rates by up
+          to 81.5 percentage points over standard multiple shooting, while IP-PAS achieves solution quality comparable
+          to serial methods with up to a 3.1× speedup and scales to horizons of 40,000 timesteps.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="paper-section" id="transcription" aria-labelledby="transcription-title">
+    <div class="paper-wrap">
+      <h2 class="paper-title" id="transcription-title">Mathematical transcription</h2>
+      <p class="paper-intro">Planning through contact couples the robot’s motion to the impulses it exchanges with the environment. The four transcriptions differ in which variables the optimizer can adjust and how it enforces contact.</p>
+
+      <div class="notation">
+        <h3>One step of contact dynamics</h3>
+        <p>Let \(x=(q,v)\) be the current state, with configuration \(q\) and velocity \(v\). The control is \(u\), the contact impulse is \(\gamma\), and the next state is \(x^+\).</p>
+        <dl class="notation-functions">
+          <div>
+            <dt>\(f_\text{contact}\)</dt>
+            <dd>Solves the contact-resolution problem for the current state and control to obtain the contact impulse.</dd>
+          </div>
+          <div>
+            <dt>\(f_\text{integrate}\)</dt>
+            <dd>Advances the dynamics by one time step using the current state, control, and supplied contact impulse.</dd>
+          </div>
+          <div>
+            <dt>\(f_\text{step}\)</dt>
+            <dd>Computes the next state from the current state and control by resolving contact first and then integrating.</dd>
+          </div>
+        </dl>
+        <div class="equation">
+          <div class="equation-display">
+            \[
+              \begin{aligned}
+                x^+ &amp;= f_\text{integrate}(x,u,\gamma), \\
+                \gamma &amp;= f_\text{contact}(x,u), \\
+                x^+ &amp;= f_\text{step}(x,u) := f_\text{integrate}\bigl(x,u,f_\text{contact}(x,u)\bigr).
+              \end{aligned}
+            \]
+          </div>
+        </div>
+      </div>
+
+      <div class="formulation-grid">
+        <article class="paper-card formulation">
+          <h3>Single shooting transcription</h3>
+          <p>Optimize only the controls. Roll out \(x_{t+1} = f_\text{step}(x_t,u_t)\) from the initial condition \(\hat{x}_0\).</p>
+          <div class="equation">
+            <div class="equation-display">
+              \[
+                \min_{u_{0:T-1}} \ \textstyle\sum_{t=0}^{T-1} \ell(x_t,u_t) + \ell_T(x_T)
+              \]
+            </div>
+          </div>
+        </article>
+        <article class="paper-card formulation">
+          <h3>Multiple shooting transcription</h3>
+          <p>Optimize the states and controls. Enforce the dynamics between adjacent states as equality constraints.</p>
+          <div class="equation">
+            <div class="equation-display">
+              \[
+                \min_{x_{0:T},u_{0:T-1}} \ \textstyle\sum_{t=0}^{T-1} \ell(x_t,u_t) + \ell_T(x_T)
+              \]
+            </div>
+            <div class="equation-display">
+              \[
+                \begin{aligned}
+                  \text{s.t.}\quad &amp; x_0 = \hat{x}_0, \\
+                  &amp; x_{t+1} = f_\text{step}(x_t,u_t), \quad t=0,\dots,T-1.
+                \end{aligned}
+              \]
+            </div>
+          </div>
+        </article>
+        <article class="paper-card formulation">
+          <h3>Contact implicit transcription</h3>
+          <p>Optimize states, controls, and impulses. Enforce the contact solver’s complementarity conditions in the trajectory optimization.</p>
+          <div class="equation">
+            <div class="equation-display">
+              \[
+                \min_{\substack{x_{0:T}, \\ u_{0:T-1}, \\ \gamma_{0:T-1}}}
+                \ \textstyle\sum_{t=0}^{T-1} \ell(x_t,u_t) + \ell_T(x_T)
+              \]
+            </div>
+            <div class="equation-display">
+              \[
+                \begin{aligned}
+                  \text{s.t.}\quad &amp; x_0 = \hat{x}_0, \\
+                  &amp; x_{t+1} = f_\text{integrate}(x_t,u_t,\gamma_t), \quad t=0,\dots,T-1, \\
+                  &amp; \mathcal{F}_\mu \ni \gamma_t \perp J(q_t)\,v_{t+1} +
+                    [\begin{matrix} \tfrac{\phi(q_t)}{\delta t} &amp; 0 &amp; 0 \end{matrix}]^\top \in \mathcal{F}_\mu^*, \\
+                  &amp; t=0,\dots,T-1.
+                \end{aligned}
+              \]
+            </div>
+          </div>
+        </article>
+        <article class="paper-card formulation formulation-lifted">
+          <h3>Lifted multiple shooting transcription</h3>
+          <p>Optimize states, controls, and impulses. Keep the dynamics, contact consistency, and friction-cone feasibility as separate constraints.</p>
+          <div class="equation">
+            <div class="equation-display">
+              \[
+                \min_{\substack{x_{0:T},\,u_{0:T-1}, \\ \gamma_{0:T-1}}}
+                \ \textstyle\sum_{t=0}^{T-1} \ell(x_t,u_t) + \ell_T(x_T)
+              \]
+            </div>
+            <div class="equation-display">
+              \[
+                \begin{aligned}
+                  \text{s.t.}\quad &amp; x_0 = \hat{x}_0, \\
+                  &amp; x_{t+1} = f_\text{integrate}(x_t,u_t,\gamma_t), \quad t=0,\dots,T-1, \\
+                  &amp; \gamma_t = f_\text{contact}(x_t,u_t), \quad t=0,\dots,T-1, \\
+                  &amp; \gamma_t \in \mathcal{F}_\mu, \quad t=0,\dots,T-1.
+                \end{aligned}
+              \]
+            </div>
+          </div>
+        </article>
+      </div>
+      <p class="paper-note">\(\mathcal{F}_\mu\) is the friction cone and \(\mathcal{F}_\mu^*\) is its dual. The contact Jacobian \(J\) maps velocity into contact coordinates, \(\phi\) is the contact gap, and \(\delta t\) is the time step.</p>
+    </div>
+  </section>
+  <section class="paper-section paper-section-tinted" id="pas" aria-labelledby="pas-title">
+    <div class="paper-wrap">
+      <h2 class="paper-title" id="pas-title">Interior point - Parallel associative scan</h2>
+      <p class="paper-intro">At each interior-point iteration, IP-PAS solves the linearized Karush–Kuhn–Tucker (KKT) equations of the nonlinear program (NLP) for the lifted multiple shooting transcription. Parallel associative scans compute the primal–dual update across time by processing each level of a binary tree in parallel.</p>
+      <div class="scan-composition">
+        <p>The five-tuple below describes the state and costate relationship between stages <i>i</i> and <i>j</i>.</p>
+        <div class="equation">
+          <div class="equation-display">
+            \[
+              \mathcal{E}_{i\to j} = (P_{ij},p_{ij},\bar{A}_{ij},b_{ij},C_{ij})
+            \]
+          </div>
+        </div>
+        <p>The tuples have a composition rule:</p>
+        <div class="equation">
+          <div class="equation-display">
+            \[
+              \mathcal{E}_{i\to j} \circ \mathcal{E}_{j\to k} = \mathcal{E}_{i\to k}
+            \]
+          </div>
+        </div>
+        <p>The composition rule is associative.</p>
+      </div>
+      <figure class="paper-card scan" id="scan" aria-labelledby="scan-stage">
+        <ol class="scan-phases" aria-label="Scan phases">
+          <li aria-current="step">Leaves</li><li>Up-pass</li><li>Down-pass</li><li>Postfix results</li>
+        </ol>
+        <figcaption class="scan-caption" aria-live="polite" aria-atomic="true">
+          <h3 id="scan-stage">Leaves</h3>
+          <p id="scan-description">Each leaf links the state and costate of adjacent time steps. The last leaf holds the terminal boundary.</p>
+        </figcaption>
+        <ul class="scan-legend" aria-label="Tree node legend">
+          <li class="scan-key-up">Top · Up-scan interval</li>
+          <li class="scan-key-down">Bottom · Down-scan suffix</li>
+        </ul>
+        <div id="scan-tree"></div>
+        <div class="scan-controls" id="scan-controls" hidden>
+          <button type="button" id="scan-play">Play</button>
+          <button type="button" id="scan-previous">Previous</button>
+          <button type="button" id="scan-next">Next</button>
+          <button type="button" id="scan-reset">Reset</button>
+          <span id="scan-position" class="scan-position"></span>
+        </div>
+        <div class="scan-local" id="scan-local" role="img"
+          aria-label="At the first leaf, state passes from step zero to step one and costate passes from step one to step zero." hidden>
+          <span>Step 0</span>
+          <span class="scan-local-directions"><strong>State →</strong><strong>← Costate</strong></span>
+          <span>Step 1</span>
+        </div>
+        <div class="scan-down-detail" id="scan-down-detail" hidden>
+          <p>Each bottom half shows the suffix after that interval. The root starts with the identity tuple \(\mathcal{E}_{8\to8}\) because nothing follows the terminal relation.</p>
+          <ul class="scan-splits" id="scan-splits" aria-label="Suffix passed to each child"></ul>
+        </div>
+        <div class="scan-output" id="scan-output" hidden>
+          <p>Each leaf’s bottom half now shows its inclusive postfix result. Its top half still shows the local relation used to compute it.</p>
+          <ol id="scan-suffixes" aria-label="Postfix compositions"></ol>
+        </div>
+        <noscript><p class="paper-note">The up-pass combines neighbouring intervals. In the down-pass, a right child copies its parent’s suffix and a left child prepends its right sibling’s interval to that suffix. Each leaf then prepends its own interval to obtain the full postfix result.</p></noscript>
+      </figure>
+      <p class="paper-note">The postfix scan gives the backward costate relationships. IP-PAS then uses a separate forward prefix scan to recover state updates from the initial condition.</p>
+    </div>
+  </section>
+
+  <section class="paper-section" id="results" aria-labelledby="results-title">
+    <div class="paper-wrap">
+      <h2 class="paper-title" id="results-title">Results</h2>
+      <p class="paper-intro">The paper evaluates six manipulation tasks with 200 initial conditions per task and solver. A trial succeeds when its terminal goal error is below 0.01. Reported solve times include dynamics evaluations.</p>
+      <div class="task-gallery" aria-label="Benchmark task videos">
+        <figure class="paper-card task-video">
+          <figcaption><h3 id="task-box">Box pushing</h3></figcaption>
+          <video controls muted playsinline preload="metadata" aria-labelledby="task-box">
+            <source src="static/videos/push_box.mp4" type="video/mp4">
+            <a href="static/videos/push_box.mp4">Download the box pushing video</a>
+          </video>
+        </figure>
+        <figure class="paper-card task-video">
+          <figcaption><h3 id="task-circle">Circle pushing</h3></figcaption>
+          <video controls muted playsinline preload="metadata" aria-labelledby="task-circle">
+            <source src="static/videos/push_circle.mp4" type="video/mp4">
+            <a href="static/videos/push_circle.mp4">Download the circle pushing video</a>
+          </video>
+        </figure>
+        <figure class="paper-card task-video">
+          <figcaption><h3 id="task-knob">Square knob manipulation</h3></figcaption>
+          <video controls muted playsinline preload="metadata" aria-labelledby="task-knob">
+            <source src="static/videos/square_knob.mp4" type="video/mp4">
+            <a href="static/videos/square_knob.mp4">Download the square knob video</a>
+          </video>
+        </figure>
+        <figure class="paper-card task-video">
+          <figcaption><h3 id="task-finger">Planar finger manipulation</h3></figcaption>
+          <video controls muted playsinline preload="metadata" aria-labelledby="task-finger">
+            <source src="static/videos/planar_finger.mp4" type="video/mp4">
+            <a href="static/videos/planar_finger.mp4">Download the planar finger video</a>
+          </video>
+        </figure>
+        <figure class="paper-card task-video">
+          <figcaption><h3 id="task-sphere">Sphere in-hand manipulation</h3></figcaption>
+          <video controls muted playsinline preload="metadata" aria-labelledby="task-sphere">
+            <source src="static/videos/ball_in-hand.mp4" type="video/mp4">
+            <a href="static/videos/ball_in-hand.mp4">Download the sphere in-hand video</a>
+          </video>
+        </figure>
+        <figure class="paper-card task-video">
+          <figcaption><h3 id="task-pen">Pen in-hand manipulation</h3></figcaption>
+          <video controls muted playsinline preload="metadata" aria-labelledby="task-pen">
+            <source src="static/videos/pen_in-hand.mp4" type="video/mp4">
+            <a href="static/videos/pen_in-hand.mp4">Download the pen in-hand video</a>
+          </video>
+        </figure>
+      </div>
+      <div class="results-grid">
+        <figure class="paper-card result-chart">
+          <figcaption>
+            <h3>Effect of lifting on solution quality</h3>
+            <p>Success rate and mean terminal goal error by shooting transcription with IPOPT.</p>
+          </figcaption>
+          <p class="metric-control" id="shooting-metric-control" hidden>
+            <label for="shooting-metric">Metric</label>
+            <select id="shooting-metric">
+              <option value="success">Success rate (%)</option>
+              <option value="error">Mean terminal goal error</option>
+            </select>
+          </p>
+          <div id="chart-shooting"></div>
+        </figure>
+        <figure class="paper-card result-chart">
+          <figcaption>
+            <h3>Lifted and contact-implicit benchmarks</h3>
+            <p>Success rate of lifted multiple shooting versus IPOPT with Scholtes relaxation and IMPACT. Both Scholtes relaxation and IMPACT solve the contact implicit transcription.</p>
+          </figcaption>
+          <div id="chart-contact"></div>
+        </figure>
+        <figure class="paper-card result-chart">
+          <figcaption>
+            <h3>IP-PAS reduces solve time</h3>
+            <p>All three solvers use lifted multiple shooting. IP-PAS has the shortest solve time.</p>
+          </figcaption>
+          <p class="metric-control" id="solver-metric-control" hidden>
+            <label for="solver-metric">Metric</label>
+            <select id="solver-metric">
+              <option value="time">Mean solve time (s)</option>
+              <option value="success">Success rate (%)</option>
+              <option value="error">Mean terminal goal error</option>
+            </select>
+          </p>
+          <div id="chart-solvers"></div>
+          <p class="paper-note">On sphere and pen in-hand tasks, IP-PAS ran 2.6× and 3.1× faster than FATROP, respectively.</p>
+        </figure>
+        <figure class="paper-card result-chart">
+          <figcaption>
+            <h3>IP-PAS scales to longer horizons</h3>
+            <p>Square-knob mean solve time by horizon in steps. IP-PAS solve time scales to the log of the horizon, whereas other methods scales linearily.</p>
+          </figcaption>
+          <div id="chart-scaling"></div>
+          <p class="paper-note">The target rotation increases from 5 to 100 revolutions as the horizon grows.</p>
+        </figure>
+      </div>
+      <noscript><p class="paper-note">Enable JavaScript to view the benchmark bar charts.</p></noscript>
+    </div>
+  </section>
+</main>
+</body>
+</html>
