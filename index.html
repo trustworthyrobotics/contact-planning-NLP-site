@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lifted Multiple Shooting for Parallel-in-Time Contact-Rich Trajectory Optimization</title>
+  <meta name="description" content="Lifted multiple shooting and IP-PAS: reliable contact-rich trajectory optimization with a parallel-in-time interior-point solver. Wei-Chen Li and Glen Chou.">
+  <meta name="author" content="Wei-Chen Li, Glen Chou">
+  <meta name="theme-color" content="#285c49">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Lifted Multiple Shooting for Parallel-in-Time Contact-Rich Trajectory Optimization">
+  <meta property="og:description" content="Explicit contact impulses. Reliable optimization. Parallel-in-time planning.">
+  <meta property="og:image" content="https://trustworthyrobotics.github.io/contact-planning-NLP-site/static/images/sphere.webp">
+  <meta name="citation_title" content="Lifted Multiple Shooting for Parallel-in-Time Contact-Rich Trajectory Optimization">
+  <meta name="citation_author" content="Li, Wei-Chen">
+  <meta name="citation_author" content="Chou, Glen">
+  <meta name="citation_pdf_url" content="https://trustworthyrobotics.github.io/contact-planning-NLP-site/static/pdfs/paper.pdf">
+  <link rel="stylesheet" href="static/css/index.css">
+  <script src="static/js/index.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <main id="main">
+    <section class="hero container" aria-labelledby="paper-title">
+      <p class="eyebrow">Trajectory optimization · Contact dynamics</p>
+      <h1 id="paper-title">Lifted Multiple Shooting for<br class="desktop-break"> Parallel-in-Time Contact-Rich<br class="desktop-break"> Trajectory Optimization</h1>
+      <p class="authors">Wei-Chen Li <span aria-hidden="true">&amp;</span> Glen Chou</p>
+      <div class="actions">
+        <!-- Add the arXiv and paper URLs to these placeholders when ready. -->
+        <a class="button" role="link" aria-disabled="true" title="arXiv link coming soon">arXiv</a>
+        <a class="button" role="link" aria-disabled="true" title="Paper link coming soon">Paper</a>
+        <a class="button primary" href="code.html">Code <span aria-hidden="true">&#8599;</span></a>
+      </div>
+      <figure class="teaser">
+        <div class="teaser-grid">
+          <div><span class="figure-label">01 / Sphere reorientation</span><img src="static/images/sphere.webp" width="574" height="242" alt="Three stages of an Allegro hand rotating a sphere." fetchpriority="high"><p>180° rotation · 40 timesteps</p></div>
+          <div><span class="figure-label">02 / Pen reorientation</span><img src="static/images/pen.webp" width="576" height="271" alt="Three stages of an Allegro hand lifting a pen from its palm and rotating it upright." fetchpriority="high"><p>Grasp, lift, and rotate · 200 timesteps</p></div>
+        </div>
+        <figcaption>Planning through contact, without contact-guiding costs.<br><span>IP-PAS generates fully dynamic in-hand manipulation trajectories using lifted multiple shooting.</span></figcaption>
+      </figure>
+      <div class="highlights" aria-label="Key results">
+        <div><strong>+81.5 <small>pp</small></strong><span>Success-rate improvement<sup>1</sup></span></div>
+        <div><strong>3.1<small>×</small></strong><span>Faster solve time, up to<sup>2</sup></span></div>
+        <div><strong>40,000</strong><span>Timesteps in a planning horizon</span></div>
+      </div>
+    </section>
+    <section class="section tinted" id="overview">
+      <div class="reading-width"><p class="eyebrow">Overview</p><h2>Make contact forces part of the plan.</h2>
+        <p class="lead">Contact makes manipulation possible. Its nonsmooth dynamics also make trajectory optimization difficult.</p>
+        <p>Conventional shooting methods determine contact forces inside the dynamics, leaving trajectory improvement dependent on contact sensitivities. Contact-implicit methods expose those forces, but introduce complementarity constraints that complicate optimization.</p>
+        <p><strong>Lifted multiple shooting bridges these approaches.</strong> It introduces contact impulses as explicit optimization variables and separately enforces their consistency with the contact model. The resulting trajectory optimization problem can be solved directly with nonlinear program solvers.</p>
+        <details><summary>Read the full abstract <span aria-hidden="true">+</span></summary><p>Planning through contact requires accounting for the coupled dynamics of a robot and its environment, including inertial effects, contact forces, and friction. However, the nonsmoothness and multimodality of contact dynamics and contact geometry makes gradient-based optimization challenging. In this work, we propose lifted multiple shooting, a trajectory optimization transcription that can be solved directly using nonlinear program solvers. By explicitly introducing contact forces as optimization variables, our formulation allows the optimizer to satisfy motion consistency using any friction-feasible contact forces, while separately enforcing their attainability through the contact model. Our formulation supports a broad class of contact constitutive relations, with sensitivities computed through implicit differentiation. To enable efficient planning over long horizons and for high-dimensional systems, we further introduce IP-PAS, a parallel-in-time primal-dual interior-point solver that achieves O(log T) parallel computational depth. We evaluate the proposed methods on six fully dynamic contact-rich planning tasks, including nonprehensile pushing and in-hand manipulation, without contact-guiding costs. Lifted multiple shooting improves success rates by up to 81.5% over standard multiple shooting, while IP-PAS achieves solution quality comparable to serial methods with up to a 3.1× speedup and scales to horizons of 40,000 timesteps.</p></details>
+      </div>
+    </section>
+    <section class="section container" id="method">
+      <div class="section-heading"><p class="eyebrow">The method</p><h2>Lift the contact. Parallelize time.</h2><p>Two complementary ideas improve optimization reliability and computational scalability.</p></div>
+      <div class="method-grid">
+        <article><span class="step">01 / Formulation</span><h3>Lifted multiple shooting</h3><p>Optimize states, controls, and contact impulses together. Motion consistency and contact attainability become separate equality constraints, with no complementarity constraints in the outer NLP.</p><div class="equation" aria-label="Next state equals integration of state, control, and contact impulse">x<sub>t+1</sub> = f<sub>integrate</sub>(x<sub>t</sub>, u<sub>t</sub>, γ<sub>t</sub>)<br>γ<sub>t</sub> = f<sub>contact</sub>(x<sub>t</sub>, u<sub>t</sub>)</div><p class="note">Contact resolution supports a broad class of constitutive relations, with sensitivities obtained by implicit differentiation.</p></article>
+        <article><span class="step">02 / Solver</span><h3>IP-PAS</h3><p>A primal-dual interior-point solver replaces serial backward and forward recursions with associative scans, allowing computation across the planning horizon in parallel.</p><div class="scan" aria-label="Parallel scan combines eight time stages in three levels"><div><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div><i></i><i></i><i></i><i></i></div><div><i></i><i></i></div><div><i></i></div><span>O(log T) parallel depth · O(T) total work</span></div><p class="note">Temporal parallelism complements stagewise contact dynamics and derivative evaluation on the GPU.</p></article>
+      </div>
+    </section>
+    <section class="section tinted" id="results"><div class="container">
+      <div class="section-heading"><p class="eyebrow">Experiments</p><h2>More reliable across six contact-rich tasks.</h2><p>200 randomly sampled initial conditions per task and solver. Zero-trajectory initialization, without task-specific warm starts or contact-guiding costs.</p></div>
+      <div class="results-grid"><figure class="planar"><img src="static/images/planar-tasks.webp" width="625" height="584" loading="lazy" alt="Overlaid trajectories for box pushing, circle pushing, square knob rotation, and planar finger manipulation."><figcaption>Four planar benchmarks, alongside sphere and pen in-hand manipulation.</figcaption></figure>
+        <div><h3>The effect of lifting contact impulses</h3><p>Success rates with IPOPT, holding the solver fixed and changing the transcription.</p><div class="table-scroll"><table><caption class="sr-only">Success rates from Table II of the paper. MS means multiple shooting; LMS means lifted multiple shooting.</caption><thead><tr><th scope="col">Task</th><th scope="col">MS</th><th scope="col">LMS (ours)</th></tr></thead><tbody><tr><th scope="row">Push box</th><td>40.0%</td><td>98.5%</td></tr><tr><th scope="row">Push circle</th><td>33.5%</td><td>95.5%</td></tr><tr><th scope="row">Square knob</th><td>61.5%</td><td>100.0%</td></tr><tr><th scope="row">Planar finger</th><td>89.5%</td><td>99.5%</td></tr><tr><th scope="row">Sphere in-hand</th><td>13.0%</td><td>94.5%</td></tr><tr><th scope="row">Pen in-hand</th><td>20.0%</td><td>95.5%</td></tr></tbody></table></div><p class="note">Source: Table II. Success requires final goal error below 0.01. In-hand benchmarks use 20-step horizons; the teaser shows separate, longer-horizon examples.</p></div>
+      </div>
+      <div class="scaling-grid"><div><p class="eyebrow">Parallel-in-time performance</p><h3>Longer horizons.<br>Less time waiting.</h3><p>IP-PAS maintains solution quality comparable to serial FATROP, with the largest speedups on high-dimensional in-hand tasks. On square knob rotation, it scales to a horizon of 40,000 timesteps.</p><p class="note">IPOPT, FATROP, and IP-PAS use lifted multiple shooting. IMPACT uses a contact-implicit formulation. See the paper for full runtime and backend comparisons.</p></div><figure><img src="static/images/scaling.webp" width="572" height="329" loading="lazy" alt="Solve time versus horizon length: IP-PAS grows more slowly than IPOPT, FATROP, and IMPACT up to 40,000 timesteps."><figcaption>Figure 3 · Solve time as the planning horizon grows.</figcaption></figure></div>
+      <div class="footnotes"><p><sup>1</sup> 81.5 percentage points: 13.0% → 94.5% for sphere in-hand manipulation with IPOPT.</p><p><sup>2</sup> Pen in-hand manipulation: FATROP 17.6 s → IP-PAS 5.66 s, using the same lifted formulation.</p></div>
+    </div></section>
+    <section class="section container hardware"><div class="section-heading"><p class="eyebrow">Hardware validation</p><h2>From a planned trajectory to a physical push.</h2><p>A box-pushing experiment demonstrates transfer to a physical system, moving the box from its initial configuration toward the target.</p></div><figure><img src="static/images/hardware.webp" width="753" height="130" loading="lazy" alt="Four successive photographs of a robot executing a box-pushing trajectory on a tabletop."><figcaption>Figure 4 · Physical box-pushing experiment.</figcaption></figure></section>
+    <section class="section tinted" id="citation"><div class="reading-width"><div class="citation-heading"><div><p class="eyebrow">Reference</p><h2>Cite this work</h2></div><button class="button" id="copy-citation" type="button">Copy BibTeX</button></div><pre><code id="bibtex">@misc{li_lifted_multiple_shooting,
+  title = {Lifted Multiple Shooting for Parallel-in-Time
+           Contact-Rich Trajectory Optimization},
+  author = {Li, Wei-Chen and Chou, Glen},
+  note = {Manuscript}
+}</code></pre><p class="note">Citation reflects the supplied manuscript; publication details are not specified in the PDF.</p><p id="copy-status" class="copy-status" role="status" aria-live="polite"></p></div></section>
+  </main>
+  <footer class="container"><p>Wei-Chen Li &amp; Glen Chou <span aria-hidden="true">·</span> Contact-rich trajectory optimization</p><a href="#main">Back to top ↑</a><p class="credit">Rebuilt from the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template">Academic Project Page Template</a> and <a href="https://nerfies.github.io/">Nerfies</a>. Template: <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. Figures from the accompanying manuscript.</p></footer>
+</body>
+</html>
